@@ -32,7 +32,8 @@
       locationLoading: 'Locatie ophalen…',
       locationActive: 'Huidige locatie wordt gebruikt',
       locationDenied: 'Locatietoegang geweigerd',
-      locationUnsupported: 'Locatie niet beschikbaar'
+      locationUnsupported: 'Locatie niet beschikbaar',
+      mapsPart: (n, total) => `Deel ${n}/${total}`
     },
     en: {
       chooseLanguage: 'Choose your language',
@@ -60,7 +61,8 @@
       locationLoading: 'Getting location…',
       locationActive: 'Using current location',
       locationDenied: 'Location access denied',
-      locationUnsupported: 'Location unavailable'
+      locationUnsupported: 'Location unavailable',
+      mapsPart: (n, total) => `Part ${n}/${total}`
     },
     fr: {
       chooseLanguage: 'Choisissez votre langue',
@@ -88,7 +90,8 @@
       locationLoading: 'Localisation en cours…',
       locationActive: 'Position actuelle utilisée',
       locationDenied: 'Accès à la localisation refusé',
-      locationUnsupported: 'Localisation indisponible'
+      locationUnsupported: 'Localisation indisponible',
+      mapsPart: (n, total) => `Partie ${n}/${total}`
     }
   };
 
@@ -110,34 +113,91 @@
     locationStatus: 'idle' // idle | loading | granted | denied | unsupported
   };
 
-  function buildRouteUrl(route, center, cityName) {
-    // Use the documented ?api=1 format. The Android Google Maps app
-    // parses origin/destination/waypoints from this format natively;
-    // the /maps/dir/A/B/C/... path style only renders 2 stops in the
-    // mobile Maps app.
-    const places = (route.path && route.path.length >= 2)
-      ? route.path.map(p => p + ', ' + cityName)
+  function isRoadCodeStop(stop) {
+    return /^(?:[AENR]\.?\d{1,4}(?:\.\d{1,4})*)$/i.test(String(stop).trim());
+  }
+
+  function isQualifiedStop(stop) {
+    const trimmed = String(stop).trim();
+    return /\b\d{4}\b/.test(trimmed) || /,\s*(?:belgium|belgie|belgië|belgique)$/i.test(trimmed);
+  }
+
+  function navigationStops(path) {
+    if (!path || path.length < 2) return null;
+    const filtered = [];
+    path.forEach((stop, index) => {
+      const trimmed = String(stop).trim();
+      const isEndpoint = index === 0 || index === path.length - 1;
+      if (!isEndpoint && isRoadCodeStop(trimmed)) return;
+      if (filtered[filtered.length - 1] === trimmed) return;
+      filtered.push(trimmed);
+    });
+    return filtered.length >= 2 ? filtered : path;
+  }
+
+  // Build one Maps URL per "part". Google Maps ?api=1 caps waypoints at
+  // 9 per request. Standalone road codes (E411, E25, N81, ...) are shown
+  // in the route text but skipped for navigation because Google can resolve
+  // them to far-away points on long roads.
+  function buildRouteUrls(route, center, cityName) {
+    const effectiveCity = route.cityHint || cityName;
+
+    // GPS coord entries are stored as "lng,lat"; swap to "lat,lng" for
+    // Maps, and skip the city suffix because they are raw coordinates.
+    function expand(p) {
+      const trimmed = String(p).trim();
+      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(trimmed);
+      if (m) return m[2] + ',' + m[1];
+      if (isQualifiedStop(trimmed)) return trimmed;
+      return trimmed + ', ' + effectiveCity;
+    }
+
+    const sourcePath = route.navigationPath || route.path;
+    let stops = (sourcePath && sourcePath.length >= 2)
+      ? navigationStops(sourcePath).map(expand)
       : [center.address];
 
-    let origin, destination, waypoints;
     if (state.userLocation) {
-      origin = state.userLocation.lat.toFixed(6) + ',' + state.userLocation.lng.toFixed(6);
-      destination = places[places.length - 1];
-      waypoints = places.slice(0, -1);
-    } else {
-      origin = places[0];
-      destination = places[places.length - 1];
-      waypoints = places.slice(1, -1);
+      stops = [state.userLocation.lat.toFixed(6) + ',' + state.userLocation.lng.toFixed(6)].concat(stops);
     }
 
-    let url = 'https://www.google.com/maps/dir/?api=1';
-    url += '&origin=' + encodeURIComponent(origin);
-    url += '&destination=' + encodeURIComponent(destination);
-    if (waypoints.length > 0) {
-      url += '&waypoints=' + waypoints.map(encodeURIComponent).join('%7C');
+    // Split into parts (10 stops max per part). Adjacent parts share
+    // the boundary stop so navigation feels continuous.
+    const MAX_STOPS_PER_PART = 10;
+    const parts = [];
+    if (stops.length <= MAX_STOPS_PER_PART) {
+      parts.push(stops);
+    } else {
+      let start = 0;
+      while (start < stops.length - 1) {
+        const end = Math.min(start + MAX_STOPS_PER_PART - 1, stops.length - 1);
+        parts.push(stops.slice(start, end + 1));
+        if (end >= stops.length - 1) break;
+        start = end;
+      }
     }
-    url += '&travelmode=driving';
-    return url;
+
+    return parts.map(partStops => {
+      if (partStops.length < 2) {
+        return 'https://www.google.com/maps/dir/?api=1&destination=' +
+          encodeURIComponent(partStops[0] || center.address) + '&travelmode=driving';
+      }
+      const origin = partStops[0];
+      const destination = partStops[partStops.length - 1];
+      const waypoints = partStops.slice(1, -1);
+      let url = 'https://www.google.com/maps/dir/?api=1';
+      url += '&origin=' + encodeURIComponent(origin);
+      url += '&destination=' + encodeURIComponent(destination);
+      if (waypoints.length > 0) {
+        url += '&waypoints=' + waypoints.map(encodeURIComponent).join('%7C');
+      }
+      url += '&travelmode=driving';
+      return url;
+    });
+  }
+
+  function buildRouteUrl(route, center, cityName) {
+    return buildRouteUrls(route, center, cityName)[0];
   }
 
   function requestLocation() {
@@ -206,17 +266,9 @@
 
   function refreshRouteUrls() {
     if (state.screen !== 'center') return;
-    const city = CITIES.find(c => c.id === state.selectedCityId);
-    if (!city) return;
-    const center = city.centers.find(c => c.id === state.selectedCenterId);
-    if (!center) return;
-    const cards = $$('.route-card');
-    cards.forEach((card, idx) => {
-      const route = center.routes[idx];
-      if (!route) return;
-      const btn = card.querySelector('.maps-btn');
-      if (btn) btn.setAttribute('href', buildRouteUrl(route, center, city.name.nl));
-    });
+    // Re-render — the number of parts can change when user GPS is added
+    // (a route at the 10-stop limit becomes 2 parts once GPS is prepended).
+    renderCenter(state.selectedCityId, state.selectedCenterId);
   }
 
   // ===================== DOM helpers =====================
@@ -486,14 +538,27 @@
           <div class="route-tags">
             ${route.tags.map(tag => `<span class="route-tag">${escapeHtml(tag[state.lang])}</span>`).join('')}
           </div>
-          ${route.path ? `<ol class="route-path">${route.path.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ol>` : ''}
+          ${route.path ? `<ol class="route-path">${route.path.map(p => {
+            const coord = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(p);
+            return coord
+              ? `<li class="route-path-coord">📍 <span>${escapeHtml(p)}</span></li>`
+              : `<li>${escapeHtml(p)}</li>`;
+          }).join('')}</ol>` : ''}
           <div class="route-notes">
             <ul>${route.notes.map(n => `<li>${escapeHtml(n[state.lang])}</li>`).join('')}</ul>
           </div>
-          <a class="maps-btn" href="${buildRouteUrl(route, center, city.name.nl)}" target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
-            ${escapeHtml(t().openMaps)}
-          </a>
+          ${(() => {
+            const urls = buildRouteUrls(route, center, city.name.nl);
+            return urls.map((url, partIdx) => {
+              const label = urls.length > 1
+                ? `${t().openMaps} · ${t().mapsPart(partIdx + 1, urls.length)}`
+                : t().openMaps;
+              return `<a class="maps-btn" href="${url}" data-part-idx="${partIdx}" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+                ${escapeHtml(label)}
+              </a>`;
+            }).join('');
+          })()}
         </div>
       `;
       list.appendChild(card);
@@ -650,7 +715,9 @@
       if (!center) return;
       const route = center.routes[idx];
       if (!route) return;
-      btn.href = buildRouteUrl(route, center, city.name.nl);
+      const partIdx = parseInt(btn.getAttribute('data-part-idx') || '0', 10);
+      const urls = buildRouteUrls(route, center, city.name.nl);
+      if (urls[partIdx]) btn.href = urls[partIdx];
     });
 
     $('#useLocationToggle').addEventListener('change', (e) => {

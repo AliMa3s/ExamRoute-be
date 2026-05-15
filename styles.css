@@ -703,6 +703,8 @@ a.chip.chip-phone:active { background: #d8e6f4; }
   align-items: center;
   justify-content: center;
 }
+.route-path-coord { color: var(--muted); font-size: 12px; }
+.route-path-coord span { font-family: ui-monospace, monospace; }
 .route-path li:not(:last-child)::after {
   content: '';
   position: absolute;
@@ -730,7 +732,7 @@ a.chip.chip-phone:active { background: #d8e6f4; }
   margin: 0;
 }
 .maps-btn {
-  margin-top: 4px;
+  margin-top: 8px;
   width: 100%;
   padding: 12px 16px;
   border-radius: var(--radius);

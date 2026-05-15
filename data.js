@@ -20,11 +20,32 @@
   // ===================== Helpers =====================
   function tri(nl, en, fr) { return { nl, en, fr }; }
   function gmaps(q) { return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q); }
+  // Detect coordinate strings in the JSON ("lng,lat" — Belgian longitude
+  // comes first, e.g. "5.778682,49.672546"). Returns the swapped
+  // "lat,lng" string for Google Maps, or null if not a coord.
+  function asCoord(s) {
+    const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(s);
+    if (!m) return null;
+    return m[2] + ',' + m[1];
+  }
+  function isRoadCodeStop(s) {
+    return /^(?:[AENR]\.?\d{1,4}(?:\.\d{1,4})*)$/i.test(String(s).trim());
+  }
+  function isQualifiedStop(s) {
+    const trimmed = String(s).trim();
+    return /\b\d{4}\b/.test(trimmed) || /,\s*(?:belgium|belgie|belgië|belgique)$/i.test(trimmed);
+  }
   function gmapsPath(path, cityName) {
     if (!path || path.length < 2) return null;
-    const segments = path.map(p =>
-      encodeURIComponent(p + ', ' + cityName).replace(/%20/g, '+')
-    );
+    const navigationPath = path.filter((p, index) => {
+      const isEndpoint = index === 0 || index === path.length - 1;
+      return isEndpoint || !isRoadCodeStop(p);
+    });
+    const segments = navigationPath.map(p => {
+      const coord = asCoord(p);
+      const place = coord || (isQualifiedStop(p) ? String(p).trim() : (p + ', ' + cityName));
+      return encodeURIComponent(place).replace(/%20/g, '+');
+    });
     return 'https://www.google.com/maps/dir/' + segments.join('/');
   }
   function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
@@ -356,6 +377,64 @@
         distanceKm: 13, durationMin: 26,
         imageUrl: 'assets/GentrouteC.png'
       }
+    },
+
+    // Paths below are preserved EXACTLY as in the JSON source — including
+    // GPS waypoints (lng,lat) and consecutive duplicates. The coordinates
+    // act as routing anchors that force Maps to follow the real practice
+    // route instead of computing its own shortest path.
+    'alken-1': {
+      city: 'Alken',
+      A: { path: ['Pickardstraat', 'Stationsstraat', 'N80', 'Luikersteenweg', 'Zomerstraat', '5.345671,50.917724', 'Sint-Martinusplein', 'de Geloesplein', 'Prins-Bisschopssingel', 'Sint-Truidersteenweg', 'Pickardstraat'], imageUrl: 'assets/AlkenrouteA.png' },
+      B: { path: ['Pickardstraat', 'Meerdegatstraat', 'Steenweg', 'Trekschurenstraat', 'Kliniekstraat', 'Prins-Bisschopssingel', 'Danielstraat', 'Oude Luikerbaan', 'Kruisherenlaan', 'Slagerslaan', 'Boerenkrijgsingel', 'N80', 'Pickardstraat'], imageUrl: 'assets/AlkenrouteB.png' },
+      C: { path: ['Pickardstraat', 'Kolmenstraat', 'N80', 'Sint-Truidersteenweg', 'Vorststraat', 'Paenhuisstraat', 'Pastorijstraat', 'Graaf de Brigodestraat', 'Lindenhofstraat', 'Beukenhoflaan', 'Sint-Truidersteenweg', 'Stationsstraat', 'Pickardstraat'], imageUrl: 'assets/AlkenrouteC.png' },
+      D: { path: ['Pickardstraat', 'Papenakkerstraat', 'Rode-Kruisstraat', 'Lindenhofstraat', 'Kapelhofstraat', 'Sint-Truidersteenweg', 'N80', 'Pickardstraat'], imageUrl: 'assets/AlkenrouteD.png' },
+      E: { path: ['Pickardstraat', 'Jardinstraat', 'N80', 'Notelarenstraat', 'Jagersstraat', 'Sint-Hubertusplein', 'Boerenkrijgsingel', 'Sint-Truidersteenweg', 'Pickardstraat'], imageUrl: 'assets/AlkenrouteE.png' },
+      F: { path: ['Pickardstraat', 'N80', 'Sint-Truidersteenweg', 'Elzenstraat', 'Abelenstraat', 'Boomkensstraat', 'Boomkensstraat', 'Kruisherenlaan', 'Sint-Hubertusplein', 'Kramerslaan', 'Slagerslaan', 'Boerenkrijgsingel', 'Sint-Truidersteenweg', 'Kolmenstraat'], imageUrl: 'assets/AlkenrouteF.png' }
+    },
+
+    'arlon-1': {
+      city: 'Arlon',
+      A: { path: ['Rue Claude Berg', 'E411', 'E25', '5.778682,49.672546', 'Rue de la Posterie', 'Rue de Neufchateau', 'Rue de Neufchateau', 'Rue de Viville', 'Rue des Faubourgs', 'Rue Leon Castilhon', 'Rue Zenobe Gramme', 'Rue Zenobe Gramme', 'Rue de Toernich', 'Rue de Toernich', 'Rue de Sesselich', 'Rue du General Jourdan', 'N81', 'Rue Claude Berg'], imageUrl: 'assets/ArlonrouteA.png' },
+      B: { path: ['Rue Claude Berg', 'Avenue de Longwy', 'Chemin de Clairefontaine', 'Chemin des Espagnols', 'Avenue de Mersch', 'Rue Paul Reuter', 'Avenue de la Gare', 'Rue Francq', 'Rue Francq', 'Square Albert-1er', 'Rue Jean Koch', 'Place des Fusilles', 'Place de l\'Yser', 'Rue de Toernich', 'Rue de Toernich', 'Rue de la Gaume', 'Rue du General Jourdan', 'Route de Longwy', 'N81', 'Rue Claude Berg'], imageUrl: 'assets/ArlonrouteB.png' },
+      C: { path: ['Rue Claude Berg', '5.820002,49.652824', 'Rue du General Jourdan', 'Rue de Sesselich', 'N817', 'Avenue Jean-Baptiste Nothomb', 'Square Albert-1er', 'Rue Saint-Jean', 'Rue Paul Reuter', 'Place des Chasseurs Ardennais', 'Rue de la Caserne', 'Rue des Martyrs', 'Square Albert-1er', 'Rue des Martyrs', 'Rue de Bastogne', 'N4', 'Avenue de Longwy', 'Avenue de Longwy', '5.820504,49.65278', 'Rue Claude Berg'], imageUrl: 'assets/ArlonrouteC.png' },
+      D: { path: ['Rue Claude Berg', '5.820002,49.652824', 'Avenue de Longwy', 'Avenue du General Patton', 'Rue de la Semois', 'Rue Zenobe Gramme', 'Rue Leon Castilhon', 'Rue de Neufchateau', 'Rue de Neufchateau', 'Rue de Bastogne', 'Rue des Melezes', 'N4', 'Avenue de Longwy', 'Rue des Deportes', 'Avenue Victor Tesch', 'Avenue du General Patton', 'Avenue du General Patton', 'Route de Longwy', '5.820504,49.65278', 'Rue Claude Berg'], imageUrl: 'assets/ArlonrouteD.png' },
+      E: { path: ['Rue Claude Berg', 'Avenue de Longwy', 'Rue des Deportes', 'Rue de la Synagogue', 'Rue de la Caserne', 'Rue Nicolas Berger', 'Rue de Viville', 'Avenue du Galgenberg', 'Avenue du Galgenberg', 'Avenue du Galgenberg', 'Rue de Neufchateau', 'E25', 'E25', 'E411', 'N81', 'Rue Claude Berg'], imageUrl: 'assets/ArlonrouteE.png' },
+      F: { path: ['Rue Claude Berg', 'Avenue de Longwy', 'Avenue du General Patton', 'N817', 'Rue des Deportes', 'Avenue de Longwy', 'N4', 'Rue de Bastogne', 'Rue Sainte-Croix', 'Rue du Moulin Lampach', 'Avenue du Galgenberg', 'Rue de Neufchateau', 'Rue des Martyrs', 'Rue Joseph Netzer', 'Rue Joseph Netzer', 'Avenue du General Patton', 'Avenue de Longwy', 'N81', 'Rue Claude Berg'], imageUrl: 'assets/ArlonrouteF.png' }
+    },
+
+    'assemollem-1': {
+      city: 'Asse',
+      A: { path: ['Z. 5 Mollem', 'Velm', 'Kouter', 'Schermershoek', 'Ichelgemstraat', 'Mieregemstraat', 'Slagmolenlaan', 'Reedijk', 'Dooren', 'Z. 5 Mollem'], imageUrl: 'assets/AsseMollemrouteA.png' },
+      B: { path: ['Z. 5 Mollem', 'Dorpstraat', 'Brussegemplein', 'Brussegemkerkstraat', 'Nieuwelaan', 'Vollickstraat', 'Kasteelstraat', 'Kasteelstraat', 'Brusselsesteenweg', 'Hennekenmolen', 'Ganzenbos', 'Z. 5 Mollem'], imageUrl: 'assets/AsseMollemrouteB.png' },
+      C: { path: ['Z. 5 Mollem', 'Vaal', 'Lindelaan', 'Rozelaarstraat', 'Lindendries', 'Stevensveld', 'Heilig Hartlaan', 'Ganzenbos', 'Z. 5 Mollem'], imageUrl: 'assets/AsseMollemrouteC.png' },
+      D: { path: ['Z. 5 Mollem', 'Kalkoven', 'Koningin Astridstraat', 'Koensborre', 'Putberg', 'Heedstraat', 'Keierberg', 'Muurveld', 'Kattestraat', 'Gemeenteplein', 'Z. 5 Mollem'], imageUrl: 'assets/AsseMollemrouteD.png' },
+      E: { path: ['Z. 5 Mollem', 'Putberg', 'Kapellestraat', 'Lepelstraat', 'Heuvelstraat', 'Groenstraat', 'Gentsesteenweg', 'Kelestraat', 'Dendermondsesteenweg', 'Z. 5 Mollem'], imageUrl: 'assets/AsseMollemrouteE.png' },
+      F: {
+        path: ['Z. 5 Mollem', 'Mieregemstraat', 'Slagmolenlaan', 'Vesten', 'Stationsstraat', 'Peperstraat', 'Spiegellaan', 'August De Boeckstraat', 'Brusselsesteenweg', 'Z. 5 Mollem'],
+        navigationPath: ['Z. 5 Mollem, 1730 Asse', 'Mieregemstraat, 1730 Asse', 'Slagmolenlaan, 1730 Asse', 'Vesten 40, 1785 Merchtem', 'Stationsstraat, 1785 Merchtem', 'Peperstraat, 1785 Merchtem', 'Spiegellaan, 1785 Merchtem', 'August De Boeckstraat, 1785 Merchtem', 'Brusselsesteenweg, 1785 Merchtem', 'Z. 5 Mollem, 1730 Asse'],
+        imageUrl: 'assets/AsseMollemrouteF.png'
+      }
+    },
+
+    'bastogne-1': {
+      city: 'Bastogne',
+      A: { path: ['Rue du Marche Couvert', 'Rue de la Fagne d\'Hi', 'Rue des Abattoirs', 'Rue du Fortin', '5.69966,49.990853', 'Avenue Olivier', 'Chemin de Renval', 'Route de Marche', 'N4', 'Rue du Marche Couvert'], imageUrl: 'assets/BastognerouteA.png' },
+      B: { path: ['Rue du Marche Couvert', 'Rue de la Fagne d\'Hi', 'Rue du Fortin', 'Rue des Tanneurs', 'Place General Mac-Auliffe', 'Rue des Jardins', 'Rue des Quatre-Bras', 'Rue Lejeune', 'Rue de l\'American Legion', 'Rue de la Californie', 'Rue de la Chapelle', 'Chaussee d\'Arlon', 'Chaussee d\'Arlon', 'N4', 'Rue du Marche Couvert', 'Rue du Marche Couvert'], imageUrl: 'assets/BastognerouteB.png' },
+      C: { path: ['Rue du Marche Couvert', '5.692905,49.977639', '5.670981,49.969103', 'E25', 'E25', 'A.026.204', 'Chaussee Romaine', 'Rue de la Petite Bovire', 'Rue de la Petite Bovire', 'Rue des Genets', 'Rue des Genets', 'Route de Marche', 'Rue de Neufchateau', 'Rue de Neufchateau', 'Rue du Marche Couvert', 'Rue du Marche Couvert'], imageUrl: 'assets/BastognerouteC.png' },
+      D: { path: ['Rue du Marche Couvert', 'Rue du Vieux-Moulin', 'Rue du Vivier', 'Rue Jean-Beck', 'Rue des Remparts', 'Rue de Musy', 'Rue de Neufchateau', 'Rue de l\'Arbre', 'Rue du Marche Couvert'], imageUrl: 'assets/BastognerouteD.png' },
+      E: { path: ['Rue du Marche Couvert', 'N854', 'Rue Pierre Thomas', 'Rue Pierre Thomas', 'Rue du Vivier', 'Rue de la Citadelle', 'Chaussee d\'Arlon', 'Rue du Marche Couvert'], imageUrl: 'assets/BastognerouteE.png' },
+      F: { path: ['Rue du Marche Couvert', 'Porte-de-Treves', 'Rue Pierre Thomas', 'Rue du 1er d\'Artillerie', 'Rue de La-Roche', 'Route de Marche', 'N4', 'Rue du Marche Couvert'], imageUrl: 'assets/BastognerouteF.png' }
+    },
+
+    'braine-1': {
+      city: 'Braine-le-Comte',
+      A: { path: ['Avenue du Marouset', 'Avenue du Marouset', 'Rue Emile Heuchon', 'Rue de la Station', 'Rue de Bruxelles', 'Place des Postes', 'Rue de l\'Ecole Normale', 'Rue Adolphe Gillis', 'Rue Hector Denis', 'Place Rene Branquart', 'Rue Emile Heuchon', 'Avenue du Marouset'], imageUrl: 'assets/Braine-le-Comter-routeA.png' },
+      B: { path: ['Avenue du Marouset', 'Avenue de la Houssiere', 'Avenue de la Houssiere', 'Rue Emile Heuchon', 'Rue du Onze Novembre', 'Rue d\'Ecaussinnes', 'Avenue Alix de Namur', 'Chaussee de Mons', 'Rue de Mons', 'Grand Place', 'Rue du Viaduc', 'Chemin de Feluy', 'Avenue du Marouset'], imageUrl: 'assets/Braine-le-Comter-routeB.png' },
+      C: { path: ['Avenue du Marouset', 'Chemin des Dames', 'Chemin des Dames', 'Chemin des Dames', 'Chemin des Dames', 'Chemin des Dames', 'Chemin du Chevauchoire de Binche', 'Chemin du Chevauchoire de Binche', 'Rue des Freres Dulait', 'Rue des Freres Dulait', 'Rue du 11 Novembre', 'Place Rene Branquart', 'Rue de la Station', 'Rue Rey Aine', 'Rue de la Brainette', 'Rue Edouard Etienne', 'Rue du Viaduc', 'Chemin de Feluy', 'Avenue du Marouset', 'Avenue du Marouset'], imageUrl: 'assets/Braine-le-Comter-routeC.png' },
+      D: { path: ['Avenue du Marouset', 'Rue Edouard Etienne', 'Rue Vieille Chaussee', 'Rue de l\'Enseignement', 'Rue Emile Heuchon', 'Avenue du Marouset'], imageUrl: 'assets/Braine-le-Comter-routeD.png' },
+      E: { path: ['Avenue du Marouset', 'Rue de la Croix Huart', 'Rue des Etangs', 'Rue du Nord', 'Rue Laterale', 'Rue Emile Heuchon', 'Rue Adolphe Gillis', 'Rue de l\'Ecole Normale', 'Rue de l\'Enseignement', 'Rue de Mons', 'Chaussee de Mons', 'Avenue Alix de Namur', 'Avenue Alix de Namur', 'Rue d\'Ecaussinnes', 'Chemin du Pont', 'Chemin du Chevauchoire de Binche', 'Chemin du Baudriquin', 'Chemin du Baudriquin', 'Avenue du Marouset', 'Avenue du Marouset'], imageUrl: 'assets/Braine-le-Comter-routeE.png' },
+      F: { path: ['Avenue du Marouset', 'Avenue du Marouset', 'Rue du Viaduc', 'Rue des Digues', 'Rue de Bruxelles', 'Place des Postes', 'Rue Charles Mahieu', 'Rue de Mons', 'Rue d\'Ecaussinnes', 'Chaussee d\'Ecaussinnes', 'Chemin du Pont', 'Rue Neuve', 'Rue Hector Denis', 'Rue de la Station', 'Rue Rey Aine', 'N533', 'Rue de la Croix Huart', 'Rue Chapelle a fourmis', 'Avenue de la Houssiere', 'Avenue de la Houssiere'], imageUrl: 'assets/Braine-le-Comter-routeF.png' }
     }
   };
 
@@ -366,36 +445,54 @@
     return Math.max(1, base + offset);
   }
 
+  // Letters beyond C reuse the A/B/C flavor (cyclic) for focus/notes/tags.
+  const LETTER_FLAVOR_CYCLE = { A: 'A', B: 'B', C: 'C', D: 'A', E: 'B', F: 'C' };
+
   function makeRoutes(centerId, address, cityName) {
     const flavorKey = CENTER_FLAVORS[centerId] || 'flemish-rural';
     const f = FLAVORS[flavorKey];
     const diffMap = {
       A: tri('Gemiddeld', 'Medium', 'Moyen'),
       B: tri('Makkelijk', 'Easy', 'Facile'),
-      C: tri('Moeilijk', 'Hard', 'Difficile')
+      C: tri('Moeilijk', 'Hard', 'Difficile'),
+      D: tri('Gemiddeld', 'Medium', 'Moyen'),
+      E: tri('Makkelijk', 'Easy', 'Facile'),
+      F: tri('Moeilijk', 'Hard', 'Difficile')
     };
     const base = {
       A: { dist: 12, dur: 35, distSpread: 3, durSpread: 6 },
       B: { dist: 6, dur: 25, distSpread: 2, durSpread: 5 },
-      C: { dist: 24, dur: 45, distSpread: 5, durSpread: 9 }
+      C: { dist: 24, dur: 45, distSpread: 5, durSpread: 9 },
+      D: { dist: 14, dur: 38, distSpread: 3, durSpread: 6 },
+      E: { dist: 8, dur: 28, distSpread: 2, durSpread: 5 },
+      F: { dist: 22, dur: 42, distSpread: 5, durSpread: 8 }
     };
     const overrides = ROUTE_OVERRIDES[centerId] || {};
-    return ['A', 'B', 'C'].map(letter => {
+    // If the center has overrides for A-F, generate one route per override
+    // letter. Otherwise default to A/B/C from the flavor system.
+    const overrideLetters = Object.keys(overrides).filter(k => /^[A-F]$/.test(k)).sort();
+    const letters = overrideLetters.length > 0 ? overrideLetters : ['A', 'B', 'C'];
+    const effectiveCity = overrides.city || cityName;
+    return letters.map(letter => {
       const o = overrides[letter] || {};
       const path = o.path || null;
-      const mapsUrl = (path && gmapsPath(path, overrides.city || cityName)) || gmaps(address + ', ' + cityName);
+      const navigationPath = o.navigationPath || null;
+      const mapsUrl = ((navigationPath || path) && gmapsPath(navigationPath || path, effectiveCity)) || gmaps(address + ', ' + cityName);
+      const fLetter = LETTER_FLAVOR_CYCLE[letter] || 'A';
       return {
         id: centerId + '-' + letter.toLowerCase(),
         label: tri('Route ' + letter, 'Route ' + letter, 'Itinéraire ' + letter),
-        focus: f[letter].focus,
+        focus: f[fLetter].focus,
         difficulty: diffMap[letter],
         distanceKm: o.distanceKm != null ? o.distanceKm : variance(centerId, letter, base[letter].dist, base[letter].distSpread),
         durationMin: o.durationMin != null ? o.durationMin : variance(centerId, letter, base[letter].dur, base[letter].durSpread),
-        image: letter,
+        image: fLetter,
         imageUrl: o.imageUrl || null,
-        tags: f[letter].tags,
-        notes: f[letter].notes,
+        tags: f[fLetter].tags,
+        notes: f[fLetter].notes,
         path: path,
+        navigationPath: navigationPath,
+        cityHint: effectiveCity,
         googleMapsUrl: mapsUrl
       };
     });
