@@ -590,32 +590,51 @@
       return;
     }
     state.locationStatus = 'loading';
+    state.locationError = null;
     updateLocationUI();
     navigator.geolocation.getCurrentPosition(
       pos => {
         state.userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         state.locationStatus = 'granted';
+        state.locationError = null;
         updateLocationUI();
         refreshRouteUrls();
       },
-      () => {
+      err => {
         state.userLocation = null;
         state.locationStatus = 'denied';
+        // PositionError.code: 1=denied, 2=unavailable, 3=timeout
+        const codeMap = { 1: 'PERMISSION_DENIED', 2: 'POSITION_UNAVAILABLE', 3: 'TIMEOUT' };
+        state.locationError = (codeMap[err && err.code] || 'ERROR') + (err && err.message ? ': ' + err.message : '');
         state.useLocation = false;
         const tgl = $('#useLocationToggle');
         if (tgl) tgl.checked = false;
         updateLocationUI();
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
   function updateLocationUI() {
     const el = $('#locStatus');
     if (!el) return;
+    el.classList.toggle('loc-status-active', state.locationStatus === 'granted');
+    el.classList.toggle('loc-status-error', state.locationStatus === 'denied' || state.locationStatus === 'unsupported');
+
+    if (state.locationStatus === 'granted' && state.userLocation) {
+      el.removeAttribute('data-i18n');
+      const lat = state.userLocation.lat.toFixed(4);
+      const lng = state.userLocation.lng.toFixed(4);
+      el.textContent = t().locationActive + ' · ' + lat + ', ' + lng;
+      return;
+    }
+    if (state.locationStatus === 'denied' && state.locationError) {
+      el.removeAttribute('data-i18n');
+      el.textContent = t().locationDenied + ' · ' + state.locationError;
+      return;
+    }
     const map = {
       loading: 'locationLoading',
-      granted: 'locationActive',
       denied: 'locationDenied',
       unsupported: 'locationUnsupported',
       idle: 'locationHint'
@@ -623,8 +642,6 @@
     const key = map[state.locationStatus] || 'locationHint';
     el.setAttribute('data-i18n', key);
     el.textContent = t()[key];
-    el.classList.toggle('loc-status-active', state.locationStatus === 'granted');
-    el.classList.toggle('loc-status-error', state.locationStatus === 'denied' || state.locationStatus === 'unsupported');
   }
 
   function refreshRouteUrls() {
@@ -1058,6 +1075,23 @@
 
     window.addEventListener('hashchange', onHashChange);
     window.addEventListener('popstate', onHashChange);
+
+    // Rebuild the Maps URL at click time so we always use the latest
+    // state.userLocation, even if it arrived after the page rendered.
+    $('#routeList').addEventListener('click', (e) => {
+      const btn = e.target.closest('.maps-btn');
+      if (!btn) return;
+      const card = btn.closest('.route-card');
+      if (!card) return;
+      const idx = Array.from(card.parentNode.children).indexOf(card);
+      const city = CITIES.find(c => c.id === state.selectedCityId);
+      if (!city) return;
+      const center = city.centers.find(c => c.id === state.selectedCenterId);
+      if (!center) return;
+      const route = center.routes[idx];
+      if (!route) return;
+      btn.href = buildRouteUrl(route, center, city.name.nl);
+    });
 
     $('#useLocationToggle').addEventListener('change', (e) => {
       state.useLocation = e.target.checked;
