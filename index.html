@@ -171,6 +171,26 @@
     </div>
   </div>
 
+  <!-- Highway warning modal -->
+  <div id="highwayModal" class="modal" hidden>
+    <div class="modal-backdrop" data-highway-cancel></div>
+    <div class="modal-panel highway-panel" role="dialog" aria-modal="true" aria-labelledby="highwayTitle">
+      <button class="modal-close" data-highway-cancel aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+      </button>
+      <div class="modal-header">
+        <h2 id="highwayTitle" class="modal-title" data-i18n="highwayTitle">Highway notice</h2>
+      </div>
+      <div class="modal-body">
+        <p data-i18n="highwayText">If Google Maps sends you onto a highway or major road, take the first exit and continue the practice route. Maps can otherwise keep you on the road too long.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="highwayContinue" class="support-btn" type="button" data-i18n="highwayContinue">Continue to Google Maps</button>
+        <button class="modal-dismiss" type="button" data-highway-cancel data-i18n="highwayCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>

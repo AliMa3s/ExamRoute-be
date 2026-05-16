@@ -33,6 +33,11 @@
       locationActive: 'Huidige locatie wordt gebruikt',
       locationDenied: 'Locatietoegang geweigerd',
       locationUnsupported: 'Locatie niet beschikbaar',
+      highwayTitle: 'Let op bij snelwegen',
+      highwayText: 'Als Google Maps je op een snelweg of grote gewestweg stuurt, neem dan de eerste afrit en vervolg de oefenroute. Anders kan Maps je te lang op die weg laten rijden.',
+      highwayContinue: 'Doorgaan naar Google Maps',
+      highwayCancel: 'Annuleren',
+      waypointCount: (n) => `${n} waypoint${n === 1 ? '' : 's'}`,
       mapsPart: (n, total) => `Deel ${n}/${total}`
     },
     en: {
@@ -62,6 +67,11 @@
       locationActive: 'Using current location',
       locationDenied: 'Location access denied',
       locationUnsupported: 'Location unavailable',
+      highwayTitle: 'Highway notice',
+      highwayText: 'If Google Maps sends you onto a highway or major road, take the first exit and continue the practice route. Maps can otherwise keep you on the road too long.',
+      highwayContinue: 'Continue to Google Maps',
+      highwayCancel: 'Cancel',
+      waypointCount: (n) => `${n} waypoint${n === 1 ? '' : 's'}`,
       mapsPart: (n, total) => `Part ${n}/${total}`
     },
     fr: {
@@ -91,6 +101,11 @@
       locationActive: 'Position actuelle utilisée',
       locationDenied: 'Accès à la localisation refusé',
       locationUnsupported: 'Localisation indisponible',
+      highwayTitle: 'Attention aux autoroutes',
+      highwayText: 'Si Google Maps vous envoie sur une autoroute ou une grande route, prenez la première sortie puis continuez l\'itinéraire de pratique. Sinon, Maps peut vous faire rester trop longtemps sur cette route.',
+      highwayContinue: 'Continuer vers Google Maps',
+      highwayCancel: 'Annuler',
+      waypointCount: (n) => `${n} point${n === 1 ? '' : 's'} de passage`,
       mapsPart: (n, total) => `Partie ${n}/${total}`
     }
   };
@@ -112,14 +127,29 @@
     userLocation: null,
     locationStatus: 'idle' // idle | loading | granted | denied | unsupported
   };
+  let pendingHighwayUrl = null;
 
   function isRoadCodeStop(stop) {
-    return /^(?:[AENR]\.?\d{1,4}(?:\.\d{1,4})*)$/i.test(String(stop).trim());
+    return /^(?:[ABENR]\.?\d{1,4}(?:\.\d{1,4})*[A-Z]?)$/i.test(String(stop).trim().replace(/[¢%]$/g, ''));
+  }
+
+  function asMapsCoord(stop) {
+    const normalized = String(stop).trim()
+      .replace(/^(-?\d)\s+(\d+),(-?\d+),(\d+)$/, '$1.$2,$3.$4')
+      .replace(/^(-?\d)\s+(\d+),(-?\d+\.\d+)$/, '$1.$2,$3')
+      .replace(/^(-?\d+\.\d+),(-?\d+),\.(\d+)$/, '$1,$2.$3')
+      .replace(/^(-?\d+\.\d+)\.(-?\d+)\s+(\d+)$/, '$1,$2.$3')
+      .replace(/^(-?\d+),(\d+),(-?\d+\.\d+)$/, '$1.$2,$3')
+      .replace(/^(-?\d+\.\d+),(-?\d+),(\d+)$/, '$1,$2.$3')
+      .replace(/,\s*(-?\d+)\.\s*(\d+)$/, ',$1.$2')
+      .replace(/%$/, '');
+    const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(normalized);
+    return m ? m[2] + ',' + m[1] : null;
   }
 
   function isQualifiedStop(stop) {
     const trimmed = String(stop).trim();
-    return /\b\d{4}\b/.test(trimmed) || /,\s*(?:belgium|belgie|belgië|belgique)$/i.test(trimmed);
+    return /\b\d{4}\b/.test(trimmed) || /,\s*(?:belgium|belgie|belgië|belgique)$/i.test(trimmed) || /,\s*[A-Za-zÀ-ÿ' -]+$/.test(trimmed);
   }
 
   function navigationStops(path) {
@@ -128,7 +158,7 @@
     path.forEach((stop, index) => {
       const trimmed = String(stop).trim();
       const isEndpoint = index === 0 || index === path.length - 1;
-      if (!isEndpoint && isRoadCodeStop(trimmed)) return;
+      if (!isEndpoint && isRoadCodeStop(trimmed) && !isQualifiedStop(trimmed)) return;
       if (filtered[filtered.length - 1] === trimmed) return;
       filtered.push(trimmed);
     });
@@ -146,13 +176,13 @@
     // Maps, and skip the city suffix because they are raw coordinates.
     function expand(p) {
       const trimmed = String(p).trim();
-      const m = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(trimmed);
-      if (m) return m[2] + ',' + m[1];
+      const coord = asMapsCoord(trimmed);
+      if (coord) return coord;
       if (isQualifiedStop(trimmed)) return trimmed;
       return trimmed + ', ' + effectiveCity;
     }
 
-    const sourcePath = route.navigationPath || route.path;
+    const sourcePath = route.navigationPath || route.displayPath || route.path;
     let stops = (sourcePath && sourcePath.length >= 2)
       ? navigationStops(sourcePath).map(expand)
       : [center.address];
@@ -198,6 +228,39 @@
 
   function buildRouteUrl(route, center, cityName) {
     return buildRouteUrls(route, center, cityName)[0];
+  }
+
+  function routeHasMajorRoad(route) {
+    const stops = []
+      .concat(route.path || [])
+      .concat(route.displayPath || [])
+      .concat(route.navigationPath || []);
+    return stops.some(stop => /(?:^|,\s*|\s)(?:[ABENR]\.?\d{1,4}(?:\.\d{1,4})*[A-Z]?)(?:\b|,)/i.test(String(stop).trim()));
+  }
+
+  function openHighwayModal(url) {
+    pendingHighwayUrl = url;
+    const m = $('#highwayModal');
+    if (!m) return;
+    m.hidden = false;
+    requestAnimationFrame(() => m.classList.add('open'));
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeHighwayModal() {
+    pendingHighwayUrl = null;
+    const m = $('#highwayModal');
+    if (!m) return;
+    m.classList.remove('open');
+    setTimeout(() => { m.hidden = true; }, 180);
+    if ($('#aboutModal') && !$('#aboutModal').hidden) return;
+    document.body.style.overflow = '';
+  }
+
+  function continueHighwayModal() {
+    const url = pendingHighwayUrl;
+    closeHighwayModal();
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   function requestLocation() {
@@ -538,12 +601,7 @@
           <div class="route-tags">
             ${route.tags.map(tag => `<span class="route-tag">${escapeHtml(tag[state.lang])}</span>`).join('')}
           </div>
-          ${route.path ? `<ol class="route-path">${route.path.map(p => {
-            const coord = /^(-?\d+\.\d+),(-?\d+\.\d+)$/.exec(p);
-            return coord
-              ? `<li class="route-path-coord">📍 <span>${escapeHtml(p)}</span></li>`
-              : `<li>${escapeHtml(p)}</li>`;
-          }).join('')}</ol>` : ''}
+          ${route.path ? `<div class="route-waypoints">${escapeHtml(t().waypointCount((route.displayPath || route.path).length))}</div>` : ''}
           <div class="route-notes">
             <ul>${route.notes.map(n => `<li>${escapeHtml(n[state.lang])}</li>`).join('')}</ul>
           </div>
@@ -717,7 +775,12 @@
       if (!route) return;
       const partIdx = parseInt(btn.getAttribute('data-part-idx') || '0', 10);
       const urls = buildRouteUrls(route, center, city.name.nl);
-      if (urls[partIdx]) btn.href = urls[partIdx];
+      if (!urls[partIdx]) return;
+      btn.href = urls[partIdx];
+      if (routeHasMajorRoad(route)) {
+        e.preventDefault();
+        openHighwayModal(urls[partIdx]);
+      }
     });
 
     $('#useLocationToggle').addEventListener('change', (e) => {
@@ -734,8 +797,11 @@
 
     $('#aboutFab').addEventListener('click', openAbout);
     $$('#aboutModal [data-close]').forEach(el => el.addEventListener('click', closeAbout));
+    $$('#highwayModal [data-highway-cancel]').forEach(el => el.addEventListener('click', closeHighwayModal));
+    $('#highwayContinue').addEventListener('click', continueHighwayModal);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !$('#aboutModal').hidden) closeAbout();
+      if (e.key === 'Escape' && !$('#highwayModal').hidden) closeHighwayModal();
     });
 
     // Initial route decision
