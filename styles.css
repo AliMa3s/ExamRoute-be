@@ -428,6 +428,26 @@ img, svg { -webkit-user-drag: none; }
   letter-spacing: 0.02em;
 }
 .center-route-badge strong { font-size: 14px; font-weight: 800; }
+.coming-soon-badge {
+  background: #fff3c4;
+  color: #5e4a00;
+  border: 1px dashed #d4a82a;
+  font-weight: 700;
+  padding: 6px 12px;
+}
+
+.coming-soon-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  background: #fff3c4;
+  color: #5e4a00;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.coming-soon-icon svg { width: 30px; height: 30px; }
 
 .center-card .center-body {
   padding: 14px 16px 12px;

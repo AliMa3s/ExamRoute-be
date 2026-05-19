@@ -136,6 +136,28 @@
     </section>
   </div>
 
+  <!-- Coming soon modal -->
+  <div id="comingSoonModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="comingSoonTitle">
+      <button class="modal-close" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+      </button>
+      <div class="modal-header">
+        <div class="coming-soon-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.2 3.1.8-1.3-4.5-2.7z"/></svg>
+        </div>
+        <h2 id="comingSoonTitle" class="modal-title" data-i18n="comingSoonTitle">Coming Soon</h2>
+      </div>
+      <div class="modal-body">
+        <p data-i18n="comingSoonText">Routes for this exam center are coming soon. We're working on adding detailed practice routes for Brussels centers.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-dismiss" data-close data-i18n="comingSoonClose">OK</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Floating About button -->
   <button id="aboutFab" class="about-fab" aria-label="About" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"/></svg>

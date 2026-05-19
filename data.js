@@ -986,12 +986,14 @@
     });
   }
 
-  function makeCenter(id, nameNl, nameEn, nameFr, operator, address, phone) {
+  function makeCenter(id, nameNl, nameEn, nameFr, operator, address, phone, opts) {
+    opts = opts || {};
     return {
       id,
       name: tri(nameNl, nameEn, nameFr),
       operator, address, phone,
-      routes: makeRoutes(id, address, nameNl)
+      routes: makeRoutes(id, address, nameNl),
+      comingSoon: !!opts.comingSoon
     };
   }
 
@@ -1030,9 +1032,9 @@
     { id: 'heverlee', name: tri('Heverlee', 'Heverlee', 'Heverlee'), region: 'flanders', province: tri('Vlaams-Brabant', 'Flemish Brabant', 'Brabant flamand'),
       centers: [makeCenter('haasrode-1', 'Examencentrum Haasrode', 'Haasrode Exam Center', 'Centre d\'examen Haasrode', 'GOCA', 'Interleuvenlaan 64, 3001 Heverlee', '+32 16 39 89 89')] },
     { id: 'anderlecht', name: tri('Anderlecht', 'Anderlecht', 'Anderlecht'), region: 'brussels', province: tri('Brussel', 'Brussels', 'Bruxelles'),
-      centers: [makeCenter('anderlecht-1', 'Examencentrum Anderlecht', 'Anderlecht Exam Center', 'Centre d\'examen Anderlecht', 'GOCA / SBAT', 'Industrielaan 22, 1070 Anderlecht', '+32 2 521 89 76')] },
+      centers: [makeCenter('anderlecht-1', 'Examencentrum Anderlecht', 'Anderlecht Exam Center', 'Centre d\'examen Anderlecht', 'GOCA / SBAT', 'Industrielaan 22, 1070 Anderlecht', '+32 2 521 89 76', { comingSoon: true })] },
     { id: 'schaerbeek', name: tri('Schaarbeek / Evere', 'Schaerbeek / Evere', 'Schaerbeek / Evere'), region: 'brussels', province: tri('Brussel', 'Brussels', 'Bruxelles'),
-      centers: [makeCenter('schaerbeek-1', 'Examencentrum Schaarbeek', 'Schaerbeek Exam Center', 'Centre d\'examen Schaerbeek', 'GOCA / SBAT', 'Colonel Bourgstraat 118, 1140 Evere', '+32 2 736 89 19')] },
+      centers: [makeCenter('schaerbeek-1', 'Examencentrum Schaarbeek', 'Schaerbeek Exam Center', 'Centre d\'examen Schaerbeek', 'GOCA / SBAT', 'Colonel Bourgstraat 118, 1140 Evere', '+32 2 736 89 19', { comingSoon: true })] },
     { id: 'couillet', name: tri('Couillet / Charleroi', 'Couillet / Charleroi', 'Couillet / Charleroi'), region: 'wallonia', province: tri('Henegouwen', 'Hainaut', 'Hainaut'),
       centers: [makeCenter('couillet-1', 'Centre d\'examen Couillet', 'Couillet Exam Center', 'Centre d\'examen Couillet', 'AIBV', 'Route de Philippeville 207, 6010 Couillet', '+32 71 47 47 60')] },
     { id: 'braine-le-comte', name: tri('\'s Gravenbrakel', 'Braine-le-Comte', 'Braine-le-Comte'), region: 'wallonia', province: tri('Henegouwen', 'Hainaut', 'Hainaut'),

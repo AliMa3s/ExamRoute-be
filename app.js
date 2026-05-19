@@ -27,6 +27,10 @@
       aboutDisclaimer: 'Enkel ter oefening. Dit zijn voorgestelde oefenroutes, geen officiële examenroutes. Bevestig altijd de details bij het examencentrum.',
       aboutSupport: 'Steun dit project',
       aboutClose: 'Sluiten',
+      comingSoonBadge: 'Binnenkort',
+      comingSoonTitle: 'Binnenkort beschikbaar',
+      comingSoonText: 'Oefenroutes voor dit examencentrum zijn binnenkort beschikbaar. We werken aan gedetailleerde routes voor Brussel.',
+      comingSoonClose: 'OK',
       useMyLocation: 'Vertrek vanaf mijn locatie',
       locationHint: 'Toon de route vanaf waar je bent',
       locationLoading: 'Locatie ophalen…',
@@ -61,6 +65,10 @@
       aboutDisclaimer: 'Practice guidance only. These are suggested practice routes and not official exam routes. Always confirm details with the exam center.',
       aboutSupport: 'Support this project',
       aboutClose: 'Close',
+      comingSoonBadge: 'Coming Soon',
+      comingSoonTitle: 'Coming Soon',
+      comingSoonText: 'Practice routes for this exam center are coming soon. We\'re working on adding detailed routes for Brussels.',
+      comingSoonClose: 'OK',
       useMyLocation: 'Start from my location',
       locationHint: 'Show directions from where you are',
       locationLoading: 'Getting location…',
@@ -95,6 +103,10 @@
       aboutDisclaimer: 'À titre indicatif uniquement. Ce sont des itinéraires de pratique suggérés et non des itinéraires officiels. Confirmez toujours les détails avec le centre d\'examen.',
       aboutSupport: 'Soutenir ce projet',
       aboutClose: 'Fermer',
+      comingSoonBadge: 'Bientôt',
+      comingSoonTitle: 'Bientôt disponible',
+      comingSoonText: 'Les itinéraires de pratique pour ce centre d\'examen seront bientôt disponibles. Nous travaillons sur les routes détaillées pour Bruxelles.',
+      comingSoonClose: 'OK',
       useMyLocation: 'Partir depuis ma position',
       locationHint: 'Itinéraire depuis votre position',
       locationLoading: 'Localisation en cours…',
@@ -435,6 +447,21 @@
     window.scrollTo(0, 0);
   }
 
+  function openComingSoon() {
+    const m = $('#comingSoonModal');
+    if (!m) return;
+    m.hidden = false;
+    requestAnimationFrame(() => m.classList.add('open'));
+    document.body.style.overflow = 'hidden';
+  }
+  function closeComingSoon() {
+    const m = $('#comingSoonModal');
+    if (!m) return;
+    m.classList.remove('open');
+    setTimeout(() => { m.hidden = true; }, 180);
+    document.body.style.overflow = '';
+  }
+
   function openAbout() {
     const m = $('#aboutModal');
     if (!m) return;
@@ -531,10 +558,13 @@
           <div class="center-pin" style="${iconStyle}">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
           </div>
-          <div class="center-route-badge" style="${badgeStyle}">
-            <strong>${center.routes.length}</strong>
-            <span>${escapeHtml(t().routes.toLowerCase())}</span>
-          </div>
+          ${center.comingSoon
+            ? `<div class="center-route-badge coming-soon-badge">⏳ ${escapeHtml(t().comingSoonBadge)}</div>`
+            : `<div class="center-route-badge" style="${badgeStyle}">
+                <strong>${center.routes.length}</strong>
+                <span>${escapeHtml(t().routes.toLowerCase())}</span>
+              </div>`
+          }
         </div>
         <div class="center-body">
           <h3 class="center-name">${escapeHtml(center.name[state.lang])}</h3>
@@ -557,11 +587,13 @@
       `;
       item.addEventListener('click', (e) => {
         if (e.target.closest('a')) return; // let tel: link fire
+        if (center.comingSoon) { openComingSoon(); return; }
         navigate('center', { cityId: city.id, centerId: center.id });
       });
       item.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          if (center.comingSoon) { openComingSoon(); return; }
           navigate('center', { cityId: city.id, centerId: center.id });
         }
       });
@@ -797,10 +829,12 @@
 
     $('#aboutFab').addEventListener('click', openAbout);
     $$('#aboutModal [data-close]').forEach(el => el.addEventListener('click', closeAbout));
+    $$('#comingSoonModal [data-close]').forEach(el => el.addEventListener('click', closeComingSoon));
     $$('#highwayModal [data-highway-cancel]').forEach(el => el.addEventListener('click', closeHighwayModal));
     $('#highwayContinue').addEventListener('click', continueHighwayModal);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !$('#aboutModal').hidden) closeAbout();
+      if (e.key === 'Escape' && !$('#comingSoonModal').hidden) closeComingSoon();
       if (e.key === 'Escape' && !$('#highwayModal').hidden) closeHighwayModal();
     });
 
